@@ -172,22 +172,40 @@
 
             console.log('Redirecting to:', deepLinkUrl);
 
-            // Пытаемся открыть Deep Link
+            // Пытаемся открыть Deep Link несколькими способами
             setTimeout(() => {
                 try {
-                    window.location.href = deepLinkUrl;
-                    
-                    // Если через 3 секунды пользователь все еще здесь, показываем сообщение
+                    // Метод 1: Попытка через invisible iframe (работает лучше в некоторых браузерах)
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = deepLinkUrl;
+                    document.body.appendChild(iframe);
+
+                    // Метод 2: Fallback через window.location
                     setTimeout(() => {
-                        showStatus('⚠️ Если приложение не открылось, откройте его вручную', 'error');
+                        window.location.href = deepLinkUrl;
+                    }, 25);
+
+                    // Метод 3: Создаем кнопку если ничего не сработало
+                    setTimeout(() => {
+                        showStatus('⚠️ Не открылось автоматически?', 'error');
                         showLoader(false);
-                    }, 3000);
+                        
+                        const statusEl = document.getElementById('status');
+                        const button = document.createElement('button');
+                        button.textContent = '📱 Открыть приложение вручную';
+                        button.style.cssText = 'margin-top:15px;padding:12px 24px;background:#0088cc;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;';
+                        button.onclick = () => {
+                            window.location.href = deepLinkUrl;
+                        };
+                        statusEl.parentElement.appendChild(button);
+                    }, 2500);
                 } catch (error) {
                     console.error('Failed to redirect:', error);
                     showStatus('❌ Ошибка при возврате в приложение', 'error');
                     showLoader(false);
                 }
-            }, 1000);
+            }, 500);
         }
 
         // Обработка ошибок
