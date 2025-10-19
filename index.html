@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Authorization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .telegram-widget-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            display: block;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            display: block;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1565c0;
+            display: block;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+            display: none;
+        }
+
+        .loader.active {
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #666;
+            text-align: left;
+        }
+
+        .info strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Авторизация</h1>
+        <p class="subtitle">Войдите через Telegram, чтобы продолжить</p>
+
+        <div class="telegram-widget-container">
+            <script async src="https://telegram.org/js/telegram-widget.js?22"
+                data-telegram-login="agurevAuthBot"
+                data-size="large"
+                data-radius="10"
+                data-onauth="onTelegramAuth(user)"
+                data-request-access="write">
+            </script>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="loader" class="loader"></div>
+
+        <div class="info">
+            <strong>Как это работает:</strong><br>
+            1. Нажмите на кнопку Telegram<br>
+            2. Подтвердите авторизацию<br>
+            3. Вы автоматически вернетесь в приложение
+        </div>
+    </div>
+
+    <script>
+        // Получаем custom URI scheme из URL параметров
+        const urlParams = new URLSearchParams(window.location.search);
+        const customScheme = urlParams.get('scheme') || 'myunityapp';
+        const deepLinkHost = urlParams.get('host') || 'telegram_auth';
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        function showLoader(show) {
+            const loaderEl = document.getElementById('loader');
+            loaderEl.className = show ? 'loader active' : 'loader';
+        }
+
+        // Callback функция для Telegram Widget
+        function onTelegramAuth(user) {
+            console.log('Telegram auth successful:', user);
+            
+            showStatus('✅ Авторизация успешна! Возвращаемся в приложение...', 'success');
+            showLoader(true);
+
+            // Формируем Deep Link URL с данными пользователя
+            const deepLinkUrl = `${customScheme}://${deepLinkHost}?` +
+                `user_id=${user.id}` +
+                `&first_name=${encodeURIComponent(user.first_name || '')}` +
+                `&last_name=${encodeURIComponent(user.last_name || '')}` +
+                `&username=${encodeURIComponent(user.username || '')}` +
+                `&photo_url=${encodeURIComponent(user.photo_url || '')}` +
+                `&auth_date=${user.auth_date}` +
+                `&hash=${user.hash}`;
+
+            console.log('Redirecting to:', deepLinkUrl);
+
+            // Пытаемся открыть Deep Link
+            setTimeout(() => {
+                try {
+                    window.location.href = deepLinkUrl;
+                    
+                    // Если через 3 секунды пользователь все еще здесь, показываем сообщение
+                    setTimeout(() => {
+                        showStatus('⚠️ Если приложение не открылось, откройте его вручную', 'error');
+                        showLoader(false);
+                    }, 3000);
+                } catch (error) {
+                    console.error('Failed to redirect:', error);
+                    showStatus('❌ Ошибка при возврате в приложение', 'error');
+                    showLoader(false);
+                }
+            }, 1000);
+        }
+
+        // Обработка ошибок
+        window.addEventListener('error', (event) => {
+            console.error('Error:', event.error);
+            showStatus('❌ Произошла ошибка при авторизации', 'error');
+        });
+
+        // Показываем информацию при загрузке
+        console.log('Telegram Auth Middleware loaded');
+        console.log('Custom scheme:', customScheme);
+        console.log('Deep link host:', deepLinkHost);
+    </script>
+</body>
+</html>
+
